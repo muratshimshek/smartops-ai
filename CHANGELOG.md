@@ -6,6 +6,20 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Added
+
+- Optional local multilingual embeddings and persistent semantic document retrieval
+- Permission-aware RAG tool with grounded source attribution
+- RAG status, reindexing, and root-revocation controls in the management panel
+- Deterministic offline tests for chunking, persistence, reindexing, and authorization boundaries
+
+### Security
+
+- Retrieval-time root and source-path authorization for every semantic result
+- Prompt-injection boundary for untrusted retrieved document content
+- Strict tool argument type and additional-property validation
+- Non-root Docker runtime, health check, and reduced build context
+
 ### Planned
 
 - User authentication and per-document authorization

@@ -25,7 +25,7 @@ class ChatOrchestrator:
             result = self.tools.execute(call.name, call.arguments)
             used.append(call.name)
             for match in result.get("matches", []):
-                source = {key: str(match.get(key, "")) for key in ("indexed_file_id", "file_name", "relative_path", "directory_path", "allowed_path_id")}
+                source = {key: str(match.get(key, "")) for key in ("indexed_file_id", "file_name", "relative_path", "directory_path", "allowed_path_id", "location")}
                 if source["file_name"] and source not in sources:
                     sources.append(source)
             follow_up.append({"role": "tool", "tool_call_id": call.id, "content": json.dumps(result)})

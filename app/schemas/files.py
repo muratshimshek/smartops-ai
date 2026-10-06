@@ -76,3 +76,26 @@ class AuditLogResponse(BaseModel):
     target_path: str
     detail: str
     created_at: datetime
+
+
+class SemanticSearchResult(BaseModel):
+    indexed_file_id: str
+    allowed_path_id: str
+    file_name: str
+    relative_path: str
+    content: str
+    location: str | None
+    distance: float
+
+
+class RAGStatusResponse(BaseModel):
+    enabled: bool
+    embedding_provider: str
+    embedding_model: str
+    indexed_documents: int
+    chunks: int
+
+
+class RAGReindexResponse(BaseModel):
+    indexed_documents: int
+    new_or_updated_chunks: int

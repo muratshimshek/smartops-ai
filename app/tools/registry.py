@@ -34,6 +34,13 @@ class ToolRegistry:
         expected = set(tool.parameters.get("required", []))
         if not expected.issubset(arguments):
             raise ToolExecutionError(f"Missing required arguments for {name}")
+        properties = tool.parameters.get("properties", {})
+        if tool.parameters.get("additionalProperties") is False and set(arguments) - set(properties):
+            raise ToolExecutionError(f"Unexpected arguments for {name}")
+        for key, value in arguments.items():
+            expected_type = properties.get(key, {}).get("type")
+            if expected_type == "string" and not isinstance(value, str):
+                raise ToolExecutionError(f"Invalid argument type for {name}.{key}")
         try:
             return tool.function(**arguments)
         except TypeError as exc:

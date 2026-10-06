@@ -63,7 +63,8 @@ def test_assistant_file_tool_returns_answer_and_source(client: TestClient, tmp_p
     assert body["sources"][0]["file_name"] == "policy.txt"
     assert body["sources"][0]["indexed_file_id"]
     assert body["sources"][0]["directory_path"] == str(root.resolve())
-    assert str(root.resolve()) in body["response"]
+    assert "Kaynak:" not in body["response"]
+    assert str(root.resolve()) not in body["response"]
 
 
 def test_excel_content_is_indexed_and_searchable(client: TestClient, tmp_path: Path) -> None:

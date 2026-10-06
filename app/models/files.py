@@ -1,7 +1,7 @@
 from datetime import datetime
 from uuid import uuid4
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
@@ -58,4 +58,20 @@ class FileAuditLog(Base):
     actor: Mapped[str] = mapped_column(String(120))
     target_path: Mapped[str] = mapped_column(Text)
     detail: Mapped[str] = mapped_column(Text, default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+
+
+class DocumentChunk(Base):
+    __tablename__ = "document_chunks"
+    __table_args__ = (UniqueConstraint("indexed_file_id", "chunk_index", name="uq_document_chunk"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    indexed_file_id: Mapped[int] = mapped_column(ForeignKey("indexed_files.id", ondelete="CASCADE"), index=True)
+    allowed_path_id: Mapped[str] = mapped_column(ForeignKey("allowed_paths.id", ondelete="CASCADE"), index=True)
+    chunk_index: Mapped[int] = mapped_column(Integer)
+    content: Mapped[str] = mapped_column(Text)
+    location: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    source_sha256: Mapped[str] = mapped_column(String(64), index=True)
+    embedding: Mapped[str] = mapped_column(Text)
+    embedding_model: Mapped[str] = mapped_column(String(255))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)

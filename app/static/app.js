@@ -73,7 +73,7 @@ function addMessage(role, content, tools = [], sources = []) {
   if (welcome) welcome.remove();
   const wrapper = document.createElement("div");
   wrapper.className = `message ${role}`;
-  const sourceText = sources.length ? `<span class="tool-chip">Kaynak: ${sources.map((source) => `<a href="/api/v1/files/${encodeURIComponent(source.indexed_file_id)}/content" target="_blank" rel="noopener">${escapeHtml(source.file_name)}</a> — ${escapeHtml(source.directory_path)}`).join("<br>")}</span>` : "";
+  const sourceText = sources.length ? `<span class="tool-chip">Kaynak: ${sources.map((source) => `<a href="/api/v1/files/${encodeURIComponent(source.indexed_file_id)}/content" target="_blank" rel="noopener">${escapeHtml(source.file_name)}</a>${source.location ? ` · ${escapeHtml(source.location)}` : ""} — ${escapeHtml(source.directory_path)}`).join("<br>")}</span>` : "";
   wrapper.innerHTML = `${role === "assistant" ? '<span class="assistant-avatar">S</span>' : ""}<div class="message-bubble">${escapeHtml(content)}${sourceText}${tools.length ? `<span class="tool-chip">Araç: ${escapeHtml(tools.join(", "))}</span>` : ""}</div>`;
   $("#messages").appendChild(wrapper);
   $("#messages").scrollTop = $("#messages").scrollHeight;
@@ -215,7 +215,28 @@ $("#saveAdminToken").addEventListener("click", () => {
   adminToken = $("#adminToken").value;
   $("#adminToken").value = "";
   showToast("Yönetici anahtarı yalnızca bu sekme için ayarlandı.");
-  loadLlmStatus(); loadAllowedPaths(); loadWriteRequests(); loadAuditLogs();
+  loadLlmStatus(); loadRagStatus(); loadAllowedPaths(); loadWriteRequests(); loadAuditLogs();
+});
+
+async function loadRagStatus() {
+  try {
+    const status = await adminApi("/api/v1/admin/rag/status");
+    $("#ragStatus").textContent = status.enabled
+      ? `Etkin · ${status.embedding_model} · ${status.indexed_documents} belge · ${status.chunks} parça`
+      : "Devre dışı · Etkinleştirmek için .env içinde RAG_ENABLED=true ayarlayın.";
+    $("#reindexRag").disabled = !status.enabled;
+  } catch (error) { showToast(error.message, true); }
+}
+
+$("#reindexRag").addEventListener("click", async () => {
+  const button = $("#reindexRag");
+  button.disabled = true;
+  try {
+    const result = await adminApi("/api/v1/admin/rag/reindex", { method: "POST" });
+    showToast(`${result.indexed_documents} belge denetlendi, ${result.new_or_updated_chunks} parça güncellendi.`);
+    await loadRagStatus();
+  } catch (error) { showToast(error.message, true); }
+  finally { button.disabled = false; }
 });
 
 async function loadLlmStatus() {
@@ -271,8 +292,18 @@ async function loadAllowedPaths() {
     const container = $("#allowedPathList");
     if (!paths.length) { container.className = "admin-list empty-state"; container.textContent = "Henüz izinli klasör eklenmedi."; return; }
     container.className = "admin-list";
-    container.innerHTML = paths.map((item) => `<div class="admin-row"><div class="admin-row-main"><strong>${escapeHtml(item.label)} · ${item.permission === "read_write" ? "Oku + onaylı yaz" : "Sadece oku"}</strong><code>${escapeHtml(item.root_path)}</code><small>ID: ${escapeHtml(item.id)}</small></div><div class="admin-actions"><button class="action-button" data-index-path="${escapeHtml(item.id)}">İndeksle</button></div></div>`).join("");
+    container.innerHTML = paths.map((item) => `<div class="admin-row"><div class="admin-row-main"><strong>${escapeHtml(item.label)} · ${item.permission === "read_write" ? "Oku + onaylı yaz" : "Sadece oku"}${item.enabled ? "" : " · Devre dışı"}</strong><code>${escapeHtml(item.root_path)}</code><small>ID: ${escapeHtml(item.id)}</small></div><div class="admin-actions">${item.enabled ? `<button class="action-button" data-index-path="${escapeHtml(item.id)}">İndeksle</button><button class="action-button reject" data-disable-path="${escapeHtml(item.id)}">Yetkiyi kaldır</button>` : ""}</div></div>`).join("");
     $$('[data-index-path]').forEach((button) => button.addEventListener("click", () => indexPath(button.dataset.indexPath)));
+    $$('[data-disable-path]').forEach((button) => button.addEventListener("click", () => disablePath(button.dataset.disablePath)));
+  } catch (error) { showToast(error.message, true); }
+}
+
+async function disablePath(id) {
+  if (!window.confirm("Bu klasörün okuma ve yazma yetkisini kaldırmak istiyor musunuz?")) return;
+  try {
+    await adminApi(`/api/v1/admin/paths/${id}`, { method: "DELETE" });
+    await loadAllowedPaths(); await loadRagStatus(); await loadAuditLogs();
+    showToast("Klasör yetkisi kaldırıldı; belge parçaları artık arama sonuçlarına dönmez.");
   } catch (error) { showToast(error.message, true); }
 }
 
@@ -288,10 +319,31 @@ $("#selectDirectory").addEventListener("click", async () => {
 });
 
 async function indexPath(id) {
+  const button = document.querySelector(`[data-index-path="${CSS.escape(id)}"]`);
+  const row = button?.closest(".admin-row");
+  const rowMain = row?.querySelector(".admin-row-main");
+  const progress = document.createElement("div");
+  progress.className = "index-progress";
+  progress.setAttribute("role", "progressbar");
+  progress.setAttribute("aria-label", "Belge indeksleme devam ediyor");
+  progress.innerHTML = '<span></span><small>İndeksleniyor… İlk model yüklemesi birkaç dakika sürebilir.</small>';
+  if (button) {
+    button.disabled = true;
+    button.textContent = "İndeksleniyor…";
+  }
+  rowMain?.appendChild(progress);
   try {
     const result = await adminApi(`/api/v1/admin/paths/${id}/index`, { method: "POST" });
     showToast(`${result.indexed_files} dosya indekslendi, ${result.skipped_files} dosya atlandı.`);
+    await loadRagStatus();
   } catch (error) { showToast(error.message, true); }
+  finally {
+    progress.remove();
+    if (button?.isConnected) {
+      button.disabled = false;
+      button.textContent = "İndeksle";
+    }
+  }
 }
 
 $("#allowedPathForm").addEventListener("submit", async (event) => {

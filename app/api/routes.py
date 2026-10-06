@@ -4,6 +4,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
+from sqlalchemy import func, select
 
 from app.api.dependencies import get_llm, get_tools, require_admin_token
 from app.core.config import Settings, get_settings
@@ -20,6 +21,9 @@ from app.schemas.files import (
     WriteDecision,
     WriteRequestCreate,
     WriteRequestResponse,
+    SemanticSearchResult,
+    RAGStatusResponse,
+    RAGReindexResponse,
 )
 from app.schemas.llm import LLMConnectionRequest, LLMConnectionStatus
 from app.services.conversations import ConversationService
@@ -28,11 +32,24 @@ from app.services.llm import LLMService, OpenAICompatibleLLMService, build_llm_s
 from app.services.orchestrator import ChatOrchestrator
 from app.services.runtime_config import apply_llm_settings, persist_llm_settings
 from app.tools.registry import ToolDefinition, ToolRegistry, _string_schema
+from app.rag.embeddings import build_embedding_provider
+from app.rag.service import RAGService
+from app.models.files import DocumentChunk
 
 router = APIRouter()
 DbDep = Annotated[Session, Depends(get_db)]
 LlmDep = Annotated[LLMService, Depends(get_llm)]
 ToolsDep = Annotated[ToolRegistry, Depends(get_tools)]
+
+
+def _rag_service(request: Request, db: Session, settings: Settings) -> RAGService:
+    if not settings.rag_enabled:
+        raise HTTPException(status_code=409, detail="RAG devre dışı")
+    provider = getattr(request.app.state, "embedding_provider", None)
+    if provider is None:
+        provider = build_embedding_provider(settings.embedding_model)
+        request.app.state.embedding_provider = provider
+    return RAGService(db, settings, provider)
 
 
 @router.get("/health")
@@ -46,7 +63,7 @@ async def analyze(payload: AnalyzeRequest, llm: LlmDep) -> ITIssueAnalysis:
 
 
 @router.post("/api/v1/chat", response_model=ChatResponse)
-async def chat(payload: ChatRequest, db: DbDep, llm: LlmDep, tools: ToolsDep, settings: Annotated[Settings, Depends(get_settings)]) -> ChatResponse:
+async def chat(payload: ChatRequest, request: Request, db: DbDep, llm: LlmDep, tools: ToolsDep, settings: Annotated[Settings, Depends(get_settings)]) -> ChatResponse:
     service = ConversationService(db)
     conversation = service.get(payload.conversation_id) if payload.conversation_id else service.create()
     if conversation is None:
@@ -63,6 +80,15 @@ async def chat(payload: ChatRequest, db: DbDep, llm: LlmDep, tools: ToolsDep, se
             file_service.search_for_assistant,
         )
     )
+    if settings.rag_enabled:
+        request_tools = request_tools.extended(
+            ToolDefinition(
+                "semantic_search_documents",
+                "İzin verilen kurumsal belgelerde anlam benzerliğine göre arama yapar.",
+                _string_schema("query", "Belgelerde aranacak soru veya kavram"),
+                _rag_service(request, db, settings).tool_search,
+            )
+        )
     answer, tools_used, sources = await ChatOrchestrator(llm, request_tools).run(history)
     service.add_message(conversation, "assistant", answer)
     return ChatResponse(conversation_id=UUID(conversation.id), response=answer, tools_used=tools_used, sources=sources)
@@ -87,11 +113,14 @@ def delete_conversation(conversation_id: UUID, db: DbDep) -> Response:
 
 
 @router.get("/api/v1/tools")
-def list_tools(tools: ToolsDep) -> list[dict[str, str]]:
-    return [
+def list_tools(tools: ToolsDep, settings: Annotated[Settings, Depends(get_settings)]) -> list[dict[str, str]]:
+    result = [
         *tools.public_descriptions(),
         {"name": "search_allowed_files", "description": "İzin verilen ve indekslenmiş kurumsal belgelerde içerik arar."},
     ]
+    if settings.rag_enabled:
+        result.append({"name": "semantic_search_documents", "description": "İzin verilen belgelerde anlamsal arama yapar."})
+    return result
 
 
 @router.get(
@@ -189,14 +218,63 @@ def add_allowed_path(payload: AllowedPathCreate, db: DbDep, settings: Annotated[
     response_model=IndexResponse,
     dependencies=[Depends(require_admin_token)],
 )
-def index_allowed_path(allowed_path_id: str, db: DbDep, settings: Annotated[Settings, Depends(get_settings)]) -> IndexResponse:
-    indexed, skipped, errors = FileAccessService(db, settings).index_path(allowed_path_id)
+def index_allowed_path(allowed_path_id: str, request: Request, db: DbDep, settings: Annotated[Settings, Depends(get_settings)]) -> IndexResponse:
+    rag = _rag_service(request, db, settings) if settings.rag_enabled else None
+    indexed, skipped, errors = FileAccessService(db, settings, rag).index_path(allowed_path_id)
     return IndexResponse(allowed_path_id=allowed_path_id, indexed_files=indexed, skipped_files=skipped, errors=errors)
+
+
+@router.delete(
+    "/api/v1/admin/paths/{allowed_path_id}",
+    response_model=AllowedPathResponse,
+    dependencies=[Depends(require_admin_token)],
+)
+def disable_allowed_path(allowed_path_id: str, db: DbDep, settings: Annotated[Settings, Depends(get_settings)]):
+    return FileAccessService(db, settings).disable_allowed_path(allowed_path_id)
 
 
 @router.post("/api/v1/files/search", response_model=list[FileSearchResult])
 def search_files(payload: FileSearchRequest, db: DbDep, settings: Annotated[Settings, Depends(get_settings)]) -> list[FileSearchResult]:
     return FileAccessService(db, settings).search(payload.query, payload.allowed_path_id)
+
+
+@router.post("/api/v1/rag/search", response_model=list[SemanticSearchResult])
+def semantic_search(payload: FileSearchRequest, request: Request, db: DbDep, settings: Annotated[Settings, Depends(get_settings)]):
+    results = _rag_service(request, db, settings).search(payload.query)
+    return [{
+        "indexed_file_id": item.indexed_file_id,
+        "allowed_path_id": item.allowed_path_id,
+        "file_name": item.file_name,
+        "relative_path": item.relative_path,
+        "content": item.content,
+        "location": item.location,
+        "distance": item.distance,
+    } for item in results]
+
+
+@router.get(
+    "/api/v1/admin/rag/status",
+    response_model=RAGStatusResponse,
+    dependencies=[Depends(require_admin_token)],
+)
+def rag_status(db: DbDep, settings: Annotated[Settings, Depends(get_settings)]):
+    return {
+        "enabled": settings.rag_enabled,
+        "embedding_provider": settings.embedding_provider,
+        "embedding_model": settings.embedding_model,
+        "indexed_documents": db.scalar(select(func.count(func.distinct(DocumentChunk.indexed_file_id)))) or 0,
+        "chunks": db.scalar(select(func.count(DocumentChunk.id))) or 0,
+    }
+
+
+@router.post(
+    "/api/v1/admin/rag/reindex",
+    response_model=RAGReindexResponse,
+    dependencies=[Depends(require_admin_token)],
+)
+def rag_reindex(request: Request, db: DbDep, settings: Annotated[Settings, Depends(get_settings)]):
+    documents, chunks = _rag_service(request, db, settings).reindex_all()
+    return {"indexed_documents": documents, "new_or_updated_chunks": chunks}
 
 
 @router.get("/api/v1/files/{indexed_file_id}/content", response_class=FileResponse)

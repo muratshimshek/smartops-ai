@@ -54,11 +54,13 @@ class DemoLLMService:
             return LLMReply(tool_calls=[ToolCall("demo-1", "search_knowledge_base", {"query": argument})])
         if command == "/files" and argument:
             return LLMReply(tool_calls=[ToolCall("demo-1", "search_allowed_files", {"query": argument})])
+        if command == "/knowledge" and argument:
+            return LLMReply(tool_calls=[ToolCall("demo-1", "semantic_search_documents", {"query": argument})])
         return LLMReply(
             content=(
                 "Demo modu doğal dili analiz etmez. Gerçek ve bağlama duyarlı cevaplar için "
                 "OpenAI uyumlu bir API veya yerel LLM bağlanmalıdır. Araç akışını denemek için "
-                "`/status vpn`, `/guide access`, `/search vpn` veya `/files maliyet` komutlarını kullanabilirsiniz."
+                "`/status vpn`, `/guide access`, `/search vpn`, `/files sorgu` veya `/knowledge sorgu` komutlarını kullanabilirsiniz."
             )
         )
 
@@ -80,10 +82,7 @@ class DemoLLMService:
             if not matches:
                 return "İzin verilen ve indekslenmiş dosyalarda bu sorguyla eşleşen bilgi bulunamadı."
             evidence = " ".join(str(item.get("excerpt", "")) for item in matches[:3]).strip()
-            source_names = "; ".join(
-                f"{item.get('file_name', '')} — {item.get('directory_path', '')}" for item in matches[:3]
-            )
-            return f"İzin verilen belgelerde bulunan bilgi: {evidence} Kaynak: {source_names}"
+            return f"İzin verilen belgelerde bulunan bilgi: {evidence}"
         return "Yerel bilgi araması tamamlandı ancak kesin bir eşleşme bulunamadı. Cihaz, hizmet ve hata mesajı hakkında ek bilgi paylaşın."
 
 

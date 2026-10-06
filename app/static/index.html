@@ -163,7 +163,13 @@
           </article>
 
           <article class="admin-card wide">
-            <div class="admin-card-head"><div><span class="step-number">02</span><h3>İzin verilen klasörler</h3></div><button id="refreshPaths" class="ghost-button">Yenile</button></div>
+            <div class="admin-card-head"><div><span class="step-number">02</span><h3>Belge bilgisi (RAG)</h3></div><button id="reindexRag" class="ghost-button" type="button">Vektörleri yenile</button></div>
+            <p class="card-description">Anlamsal arama yalnızca etkin ve izinli klasörlerde çalışır. Klasör yetkisi kaldırıldığında eski vektörler sonuçlara dönmez.</p>
+            <div id="ragStatus" class="safety-note">Yönetici anahtarını girerek durumu görüntüleyin.</div>
+          </article>
+
+          <article class="admin-card wide">
+            <div class="admin-card-head"><div><span class="step-number">03</span><h3>İzin verilen klasörler</h3></div><button id="refreshPaths" class="ghost-button">Yenile</button></div>
             <form id="allowedPathForm" class="inline-form">
               <input id="pathLabel" placeholder="Örn. Sözleşmeler" required>
               <div class="path-picker"><input id="rootPath" placeholder="C:\Şirket\Sözleşmeler veya \\SERVER\Ortak" required><button id="selectDirectory" class="ghost-button" type="button">Gözat…</button></div>
@@ -174,13 +180,13 @@
           </article>
 
           <article class="admin-card wide">
-            <div class="admin-card-head"><div><span class="step-number">03</span><h3>Bekleyen yazma talepleri</h3></div><button id="refreshWrites" class="ghost-button">Yenile</button></div>
+            <div class="admin-card-head"><div><span class="step-number">04</span><h3>Bekleyen yazma talepleri</h3></div><button id="refreshWrites" class="ghost-button">Yenile</button></div>
             <div class="safety-note">Her talep hedef yol, işlem türü ve talep eden kişiyle gösterilir. Onay sırasında izin ve dosya bütünlüğü yeniden kontrol edilir.</div>
             <div id="writeRequestList" class="admin-list empty-state">Bekleyen talepler burada görünecek.</div>
           </article>
 
           <article class="admin-card wide">
-            <div class="admin-card-head"><div><span class="step-number">04</span><h3>Denetim günlüğü</h3></div><button id="refreshAudit" class="ghost-button">Yenile</button></div>
+            <div class="admin-card-head"><div><span class="step-number">05</span><h3>Denetim günlüğü</h3></div><button id="refreshAudit" class="ghost-button">Yenile</button></div>
             <div id="auditList" class="admin-list empty-state">Dosya erişim işlemleri burada kaydedilir.</div>
           </article>
         </div>

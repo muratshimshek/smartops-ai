@@ -10,14 +10,18 @@ from openpyxl import load_workbook
 from pypdf import PdfReader
 from pptx import Presentation
 import xlrd
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
 from app.core.config import Settings
 from app.core.exceptions import SmartOpsError
 from app.models.conversation import utc_now
-from app.models.files import AllowedPath, FileAuditLog, FileWriteRequest, IndexedFile
+from app.models.files import AllowedPath, DocumentChunk, FileAuditLog, FileWriteRequest, IndexedFile
 from app.schemas.files import AllowedPathCreate, FileSearchResult, WriteRequestCreate
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from app.rag.service import RAGService
 
 TEXT_EXTENSIONS = {".txt", ".md", ".csv", ".json", ".log", ".xml", ".yaml", ".yml"}
 CONTENT_EXTENSIONS = TEXT_EXTENSIONS | {".pdf", ".docx", ".xlsx", ".xlsm", ".xls", ".pptx"}
@@ -28,9 +32,10 @@ class FileAccessError(SmartOpsError):
 
 
 class FileAccessService:
-    def __init__(self, db: Session, settings: Settings) -> None:
+    def __init__(self, db: Session, settings: Settings, rag: "RAGService | None" = None) -> None:
         self.db = db
         self.settings = settings
+        self.rag = rag
 
     def list_allowed_paths(self) -> list[AllowedPath]:
         return list(self.db.scalars(select(AllowedPath).order_by(AllowedPath.created_at.desc())))
@@ -85,7 +90,11 @@ class FileAccessService:
                         for key, value in values.items():
                             setattr(record, key, value)
                     else:
-                        self.db.add(IndexedFile(absolute_path=absolute, **values))
+                        record = IndexedFile(absolute_path=absolute, **values)
+                        self.db.add(record)
+                    self.db.flush()
+                    if self.rag and content:
+                        self.rag.index_file(record)
                     indexed += 1
                 except Exception as exc:  # individual files must not abort a full scan
                     skipped += 1
@@ -99,17 +108,37 @@ class FileAccessService:
         self.db.commit()
         return indexed, skipped, errors
 
+    def disable_allowed_path(self, allowed_path_id: str) -> AllowedPath:
+        allowed = self._get_allowed(allowed_path_id)
+        allowed.enabled = False
+        self.db.execute(delete(DocumentChunk).where(DocumentChunk.allowed_path_id == allowed.id))
+        self._audit("allowed_path_disabled", "admin", allowed.root_path, allowed.permission)
+        self.db.commit()
+        self.db.refresh(allowed)
+        return allowed
+
     def search(self, query: str, allowed_path_id: str | None = None) -> list[FileSearchResult]:
         terms = [term.casefold() for term in query.split() if len(term) >= 2]
         if not terms:
             return []
-        statement = select(IndexedFile)
+        statement = select(IndexedFile).join(AllowedPath).where(AllowedPath.enabled.is_(True))
         if allowed_path_id:
             self._get_allowed(allowed_path_id)
             statement = statement.where(IndexedFile.allowed_path_id == allowed_path_id)
         records = list(self.db.scalars(statement))
         ranked: list[tuple[int, IndexedFile]] = []
         for record in records:
+            allowed = self.db.get(AllowedPath, record.allowed_path_id)
+            if not allowed:
+                continue
+            try:
+                root = Path(allowed.root_path).resolve(strict=True)
+                source = Path(record.absolute_path).resolve(strict=True)
+                self._assert_within(root, source)
+                if not source.is_file():
+                    continue
+            except (OSError, FileAccessError):
+                continue
             haystack = f"{record.file_name}\n{record.relative_path}\n{record.content}".casefold()
             score = sum(4 if term in record.file_name.casefold() else 1 for term in terms if term in haystack)
             if score:
@@ -256,7 +285,7 @@ class FileAccessService:
         if suffix in TEXT_EXTENSIONS:
             return path.read_text(encoding="utf-8", errors="replace")
         if suffix == ".pdf":
-            return "\n".join(page.extract_text() or "" for page in PdfReader(str(path)).pages)
+            return "\n".join(f"Sayfa: {number}\n{page.extract_text() or ''}" for number, page in enumerate(PdfReader(str(path)).pages, start=1))
         if suffix == ".docx":
             return "\n".join(paragraph.text for paragraph in Document(str(path)).paragraphs)
         if suffix in {".xlsx", ".xlsm"}:

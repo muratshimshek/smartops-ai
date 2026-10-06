@@ -22,6 +22,7 @@ class ChatSource(BaseModel):
     relative_path: str
     directory_path: str
     allowed_path_id: str
+    location: str = ""
 
 
 class MessageResponse(BaseModel):
