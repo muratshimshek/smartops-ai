@@ -1,6 +1,13 @@
 # SmartOps AI
 
+[![CI](https://github.com/muratshimshek/smartops-ai/actions/workflows/ci.yml/badge.svg)](https://github.com/muratshimshek/smartops-ai/actions/workflows/ci.yml)
+[![Python](https://img.shields.io/badge/Python-3.12%2B-3776AB?logo=python&logoColor=white)](https://www.python.org/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.115%2B-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
+
 SmartOps AI is a self-hosted operations assistant for permission-scoped document search, conversational troubleshooting, and approval-controlled file changes. It supports local OpenAI-compatible model servers such as Ollama as well as hosted providers.
+
+![SmartOps AI web interface](docs/assets/smartops-dashboard.png)
 
 ## Capabilities
 
@@ -34,6 +41,8 @@ flowchart LR
 The model cannot access the filesystem directly. It can request only tools registered by the application. File tools query an index built from administrator-approved directories. A write proposal remains pending until an administrator explicitly approves it; the application then revalidates the target and creates a backup before replacement.
 
 See [Architecture](docs/ARCHITECTURE.md) and [Security](docs/SECURITY.md) for implementation details.
+
+Project history and contribution guidance are available in [CHANGELOG.md](CHANGELOG.md) and [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Requirements
 
