@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="SmartOps AI — IT operasyon sorunlarını analiz eden yapay zekâ asistanı">
+  <title>SmartOps AI</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+  <div class="ambient ambient-one"></div>
+  <div class="ambient ambient-two"></div>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <a class="brand" href="/" aria-label="SmartOps ana sayfa">
+        <span class="brand-mark"><span></span><span></span><span></span></span>
+        <span><strong>SmartOps</strong><small>AI OPERATIONS</small></span>
+      </a>
+
+      <nav class="nav" aria-label="Ana menü">
+        <button class="nav-item active" data-view="analyze">
+          <span class="nav-icon">⌁</span><span>Sorun Analizi</span>
+        </button>
+        <button class="nav-item" data-view="chat">
+          <span class="nav-icon">◫</span><span>Asistan</span>
+        </button>
+        <button class="nav-item" data-view="files">
+          <span class="nav-icon">⌕</span><span>Kurumsal Dosyalar</span>
+        </button>
+        <button class="nav-item" data-view="admin">
+          <span class="nav-icon">⚙</span><span>Yönetim</span>
+        </button>
+      </nav>
+
+      <div class="sidebar-spacer"></div>
+      <div class="system-card">
+        <div class="system-row"><span class="status-dot"></span><span>API çevrimiçi</span></div>
+        <div class="system-row muted"><span>Çalışma modu</span><strong id="modeLabel">—</strong></div>
+        <div class="system-row muted"><span>Güvenli araçlar</span><strong id="toolCount">4</strong></div>
+      </div>
+      <a class="docs-link" href="/docs" target="_blank" rel="noreferrer">API dokümantasyonu <span>↗</span></a>
+    </aside>
+
+    <main class="main-content">
+      <header class="topbar">
+        <button class="mobile-menu" aria-label="Menüyü aç">☰</button>
+        <div>
+          <p class="eyebrow">OPERATIONS INTELLIGENCE</p>
+          <h1 id="pageTitle">Sorun Analizi</h1>
+        </div>
+        <div class="mode-pill"><span></span><span id="headerMode">Demo modu</span></div>
+      </header>
+
+      <section id="analyzeView" class="view active">
+        <div class="intro-grid">
+          <div>
+            <h2>Teknik sorunu netleştirin.<br><span>Daha hızlı aksiyon alın.</span></h2>
+            <p>Semptomları doğal dille anlatın. SmartOps olası nedenleri sınıflandırır ve güvenli çözüm adımlarını sıralar.</p>
+          </div>
+          <div class="metric-row">
+            <div class="metric"><strong>7</strong><span>Sorun kategorisi</span></div>
+            <div class="metric"><strong>4</strong><span>Güvenli araç</span></div>
+            <div class="metric"><strong>12</strong><span>Mesajlık bağlam</span></div>
+          </div>
+        </div>
+
+        <form id="analyzeForm" class="command-card">
+          <div class="card-heading">
+            <div><span class="step-number">01</span><h3>Sorunu tanımlayın</h3></div>
+            <span class="helper">En az 5 karakter</span>
+          </div>
+          <textarea id="issueInput" maxlength="5000" placeholder="Örn. Departmanı değişen kullanıcı ortak klasöre erişemiyor..." required></textarea>
+          <div class="composer-footer">
+            <div class="suggestions">
+              <button type="button" data-prompt="Departmanı değişen kullanıcı ortak klasöre erişemiyor.">Erişim sorunu</button>
+              <button type="button" data-prompt="VPN bağlantısı sık sık kopuyor ve kullanıcı tekrar bağlanamıyor.">VPN sorunu</button>
+              <button type="button" data-prompt="Kullanıcının e-postaları alıcılara ulaşmıyor.">E-posta sorunu</button>
+            </div>
+            <button class="primary-button" type="submit"><span>Analiz et</span><span class="arrow">→</span></button>
+          </div>
+        </form>
+
+        <div id="analysisLoading" class="loading-card hidden"><span class="loader"></span><div><strong>Sorun analiz ediliyor</strong><small>Belirtiler ve güvenli çözüm adımları değerlendiriliyor.</small></div></div>
+        <section id="analysisResult" class="result-section hidden" aria-live="polite"></section>
+      </section>
+
+      <section id="chatView" class="view">
+        <div class="chat-layout">
+          <div class="chat-panel">
+            <div class="chat-header">
+              <div><span class="assistant-avatar">S</span><div><h2>SmartOps Asistan</h2><p><span class="status-dot"></span> Yanıt vermeye hazır</p></div></div>
+              <button id="newChatButton" class="ghost-button">+ Yeni konuşma</button>
+            </div>
+            <div id="messages" class="messages">
+              <div class="welcome-message">
+                <span class="assistant-avatar large">S</span>
+                <h3>Bugün neyi çözmemiz gerekiyor?</h3>
+                <p>Bir IT operasyon sorunu yazın. Gerekirse güvenli yerel araçları kullanarak size yol göstereceğim.</p>
+              </div>
+            </div>
+            <form id="chatForm" class="chat-composer">
+              <textarea id="chatInput" rows="1" maxlength="5000" placeholder="Mesajınızı yazın..." required></textarea>
+              <button type="submit" aria-label="Mesaj gönder">↑</button>
+            </form>
+            <p id="chatDisclaimer" class="disclaimer">Yerel doğrulama modu etkin. Doğal dil yanıtları için model bağlantısı gerekir.</p>
+          </div>
+
+          <aside class="context-panel">
+            <p class="eyebrow">OTURUM</p>
+            <h3>Konuşma bağlamı</h3>
+            <div class="context-item"><span>Konuşma ID</span><code id="conversationId">Henüz oluşturulmadı</code></div>
+            <div class="context-item"><span>Son kullanılan araç</span><strong id="lastTool">—</strong></div>
+            <div class="context-item"><span>Mesaj sayısı</span><strong id="messageCount">0</strong></div>
+            <button id="loadHistoryButton" class="secondary-button" disabled>Geçmişi yenile</button>
+          </aside>
+        </div>
+      </section>
+
+      <section id="filesView" class="view">
+        <div class="section-intro">
+          <p class="eyebrow">KURUMSAL BİLGİ</p>
+          <h2>İzinli dosyalarda güvenli arama</h2>
+          <p>Yalnızca yönetici tarafından eklenmiş ve indekslenmiş klasörlerde arama yapılır. Sonuçlar kaynak yolu ve içerik özetiyle gösterilir.</p>
+        </div>
+        <form id="fileSearchForm" class="search-bar">
+          <input id="fileSearchInput" minlength="2" maxlength="300" placeholder="Dosya adı, sözleşme konusu veya içerikte geçen ifade..." required>
+          <button class="primary-button" type="submit"><span>Ara</span><span>→</span></button>
+        </form>
+        <div id="fileSearchResults" class="file-results empty-state">Arama yapmak için en az iki karakter yazın.</div>
+        <article class="admin-card write-proposal-card">
+          <div class="admin-card-head"><div><span class="step-number">!</span><h3>Onaylı yazma talebi oluştur</h3></div><span class="helper">Dosya hemen değişmez</span></div>
+          <form id="writeProposalForm" class="inline-form write-form">
+            <input id="writeAllowedPathId" placeholder="İzinli klasör ID" required>
+            <input id="writeRelativePath" placeholder="Bağıl yol: raporlar/not.txt" required>
+            <input id="writeRequestedBy" placeholder="Talep eden kullanıcı" required>
+            <textarea id="writeContent" placeholder="Dosyaya yazılması önerilen içerik" required></textarea>
+            <button class="primary-button compact" type="submit">Onaya gönder</button>
+          </form>
+        </article>
+      </section>
+
+      <section id="adminView" class="view">
+        <div class="section-intro admin-intro">
+          <div><p class="eyebrow">YÖNETİM PANELİ</p><h2>Dosya erişimi ve onaylar</h2><p>Yönetici anahtarı yalnızca bu tarayıcı sekmesinde tutulur. Yazma işlemleri onaylanmadan uygulanmaz.</p></div>
+          <div class="admin-auth"><input id="adminToken" type="password" placeholder="Yönetici anahtarı"><button id="saveAdminToken" class="secondary-button" type="button">Oturumda kullan</button></div>
+        </div>
+
+        <div class="admin-grid">
+          <article class="admin-card wide">
+            <div class="admin-card-head"><div><span class="step-number">01</span><h3>Model bağlantısı</h3></div><span id="llmConnectionState" class="helper">Durum bekleniyor</span></div>
+            <p class="card-description">Ollama veya OpenAI uyumlu bir model sunucusunu bağlayın. Anahtar arayüzde gösterilmez ve yalnızca yerel <code>.env</code> dosyasında saklanır.</p>
+            <form id="llmConfigForm" class="inline-form llm-form">
+              <input id="llmBaseUrl" type="url" placeholder="http://127.0.0.1:11434/v1" required>
+              <input id="llmModel" placeholder="qwen3:8b" required>
+              <input id="llmApiKey" type="password" placeholder="Ollama için boş bırakılabilir">
+              <button id="testLlmConnection" class="ghost-button" type="button">Bağlantıyı test et</button>
+              <button class="primary-button compact" type="submit">Doğrula ve etkinleştir</button>
+            </form>
+            <div class="safety-note">Uzak model sunucusunu doğrudan internete açmayın. Yerel ağ veya güvenli özel ağ kullanın.</div>
+          </article>
+
+          <article class="admin-card wide">
+            <div class="admin-card-head"><div><span class="step-number">02</span><h3>İzin verilen klasörler</h3></div><button id="refreshPaths" class="ghost-button">Yenile</button></div>
+            <form id="allowedPathForm" class="inline-form">
+              <input id="pathLabel" placeholder="Örn. Sözleşmeler" required>
+              <div class="path-picker"><input id="rootPath" placeholder="C:\Şirket\Sözleşmeler veya \\SERVER\Ortak" required><button id="selectDirectory" class="ghost-button" type="button">Gözat…</button></div>
+              <select id="pathPermission"><option value="read">Sadece oku</option><option value="read_write">Oku + onaylı yaz</option></select>
+              <button class="primary-button compact" type="submit">Klasör ekle</button>
+            </form>
+            <div id="allowedPathList" class="admin-list empty-state">Yönetici anahtarını girip listeyi yenileyin.</div>
+          </article>
+
+          <article class="admin-card wide">
+            <div class="admin-card-head"><div><span class="step-number">03</span><h3>Bekleyen yazma talepleri</h3></div><button id="refreshWrites" class="ghost-button">Yenile</button></div>
+            <div class="safety-note">Her talep hedef yol, işlem türü ve talep eden kişiyle gösterilir. Onay sırasında izin ve dosya bütünlüğü yeniden kontrol edilir.</div>
+            <div id="writeRequestList" class="admin-list empty-state">Bekleyen talepler burada görünecek.</div>
+          </article>
+
+          <article class="admin-card wide">
+            <div class="admin-card-head"><div><span class="step-number">04</span><h3>Denetim günlüğü</h3></div><button id="refreshAudit" class="ghost-button">Yenile</button></div>
+            <div id="auditList" class="admin-list empty-state">Dosya erişim işlemleri burada kaydedilir.</div>
+          </article>
+        </div>
+      </section>
+    </main>
+  </div>
+  <div id="toast" class="toast" role="status"></div>
+  <script src="/static/app.js" defer></script>
+</body>
+</html>

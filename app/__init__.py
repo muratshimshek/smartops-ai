@@ -1,0 +1,2 @@
+"""SmartOps AI application package."""
+

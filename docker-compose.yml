@@ -1,0 +1,17 @@
+services:
+  api:
+    build: .
+    ports:
+      - "8000:8000"
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      DATABASE_URL: sqlite:////data/smartops.db
+      LLM_MODE: ${LLM_MODE:-demo}
+    volumes:
+      - smartops-data:/data
+
+volumes:
+  smartops-data:
+
